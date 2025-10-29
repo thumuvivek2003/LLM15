@@ -11,9 +11,12 @@
   "license": "ISC",
   "type": "module",
   "dependencies": {
+    "@mozilla/readability": "^0.6.0",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^5.1.0",
+    "html-entities": "^2.6.0",
+    "jsdom": "^27.0.1",
     "mongoose": "^8.19.2"
   }
 }

@@ -1220,3 +1220,542 @@ npm run dev
 Open the shown localhost URL. Create a preset, tweak prompts/temperature/top_p, and click **Run (stream)** to watch tokens arrive.
 
 If you want, I can add an **Abort** button, **model dropdown** with safe defaults, or **export/import presets** next.
+
+
+
+# Webpage Summarizer (MERN) — Starter
+
+A copy‑pasteable MERN mini‑app: **paste a URL → server fetches HTML, cleans text, LLM summarizes with bullet options**. You’ll practice **server‑side scraping**, **text cleaning**, **chunking/token budgeting**, and **concise prompting**.
+
+---
+
+## 0) What you’ll build
+
+* **Backend (Express)**
+
+  * `/api/summarize` → POST `{ url, bullets, length, includeQuotes, model }`
+  * Fetches HTML, extracts main content (Readability), chunks, map‑reduce summarizes via OpenAI.
+* **Frontend (React + Vite)**
+
+  * Form to paste URL + options, shows clean summary.
+
+---
+
+## 1) Folder layout
+
+```
+web-summarizer/
+  server/
+    package.json
+    .env
+    server.js
+    routes/summarize.js
+    utils/fetchAndExtract.js
+    utils/chunk.js
+    utils/summarizeLLM.js
+  client/
+    package.json
+    vite.config.js
+    index.html
+    src/
+      main.jsx
+      App.jsx
+      api.js
+```
+
+---
+
+## 2) Backend (Express)
+
+### 2.1 Install
+
+```bash
+mkdir -p web-summarizer/server && cd web-summarizer/server
+npm init -y
+npm i express cors dotenv jsdom @mozilla/readability html-entities
+```
+
+> Node 18+ has `fetch` built‑in. If you’re on older Node: `npm i node-fetch` and import it.
+
+### 2.2 `.env`
+
+```
+PORT=5052
+OPENAI_API_KEY=sk-...your key...
+```
+
+### 2.3 `package.json`
+
+```json
+{
+  "name": "web-summarizer-server",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "@mozilla/readability": "^0.5.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "html-entities": "^2.5.2",
+    "jsdom": "^24.0.0"
+  }
+}
+```
+
+### 2.4 `server.js`
+
+```js
+import 'dotenv/config';
+import express from 'express';
+import cors from 'cors';
+import summarizeRouter from './routes/summarize.js';
+
+const app = express();
+app.use(cors());
+app.use(express.json({ limit: '1mb' }));
+
+app.get('/health', (_req, res) => res.json({ ok: true }));
+app.use('/api/summarize', summarizeRouter);
+
+const PORT = process.env.PORT || 5052;
+app.listen(PORT, () => console.log(`Server listening on http://localhost:${PORT}`));
+```
+
+### 2.5 `utils/fetchAndExtract.js`
+
+```js
+import { JSDOM } from 'jsdom';
+import { Readability } from '@mozilla/readability';
+import { AllHtmlEntities } from 'html-entities';
+const entities = new AllHtmlEntities();
+
+export async function fetchAndExtract(url) {
+  const resp = await fetch(url, { headers: { 'User-Agent': 'WebSummarizer/1.0' } });
+  if (!resp.ok) throw new Error(`Fetch failed: ${resp.status}`);
+  const html = await resp.text();
+
+  // Basic protection: bail on extremely small pages
+  if (!html || html.length < 200) return { title: url, text: '' };
+
+  const dom = new JSDOM(html, { url });
+  const document = dom.window.document;
+
+  // Remove noisy nodes before Readability
+  const selectors = ['script', 'style', 'noscript', 'iframe', 'header nav', 'footer', 'form', 'aside', '.advert', '.ad', '.promo'];
+  selectors.forEach(sel => document.querySelectorAll(sel).forEach(n => n.remove()));
+
+  const reader = new Readability(document);
+  const article = reader.parse();
+
+  let title = article?.title || document.title || url;
+  let content = article?.textContent || document.body?.textContent || '';
+
+  // Normalize whitespace & entities
+  content = entities.decode(content)
+    .replace(/\u00a0/g, ' ')
+    .replace(/[\t\r]+/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+
+  // Very long pages sometimes include cookie / nav leftovers
+  // Keep only lines with some letters and at least 30 chars
+  const lines = content.split('\n').map(l => l.trim());
+  const filtered = lines.filter(l => /[A-Za-z]/.test(l) && l.length >= 30);
+  const text = filtered.join('\n\n');
+
+  return { title, text };
+}
+```
+
+### 2.6 `utils/chunk.js`
+
+```js
+// Rough token budgeting: ~4 chars ≈ 1 token (very approximate)
+const MAX_CHARS_PER_CHUNK = 4000 * 4; // ~4k tokens
+
+export function chunkText(text) {
+  if (!text) return [];
+  if (text.length <= MAX_CHARS_PER_CHUNK) return [text];
+
+  // Split on paragraph boundaries first
+  const paras = text.split(/\n\n+/);
+  const chunks = [];
+  let buf = '';
+
+  for (const p of paras) {
+    if ((buf + '\n\n' + p).length > MAX_CHARS_PER_CHUNK) {
+      if (buf) chunks.push(buf.trim());
+      if (p.length > MAX_CHARS_PER_CHUNK) {
+        // Hard split very long paragraphs
+        for (let i = 0; i < p.length; i += MAX_CHARS_PER_CHUNK) {
+          chunks.push(p.slice(i, i + MAX_CHARS_PER_CHUNK));
+        }
+        buf = '';
+      } else {
+        buf = p;
+      }
+    } else {
+      buf = buf ? buf + '\n\n' + p : p;
+    }
+  }
+  if (buf) chunks.push(buf.trim());
+  return chunks;
+}
+```
+
+### 2.7 `utils/summarizeLLM.js`
+
+```js
+const OPENAI_URL = 'https://api.openai.com/v1/chat/completions';
+
+async function callOpenAI({ model, messages, temperature = 0.2, top_p = 1 }) {
+  const r = await fetch(OPENAI_URL, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ model, messages, temperature, top_p, stream: false })
+  });
+  if (!r.ok) {
+    const t = await r.text().catch(()=>'(no body)');
+    throw new Error('OpenAI error: ' + t);
+  }
+  const json = await r.json();
+  return json.choices?.[0]?.message?.content?.trim() || '';
+}
+
+export async function summarizeChunks({ chunks, bullets, length, includeQuotes, model = 'gpt-4o-mini' }) {
+  // 1) Map: summarize each chunk
+  const partials = [];
+  for (let i = 0; i < chunks.length; i++) {
+    const content = chunks[i];
+    const summary = await callOpenAI({
+      model,
+      messages: [
+        { role: 'system', content: 'You are a precise summarizer. Be faithful to the text, avoid speculation, keep it concise.' },
+        { role: 'user', content: [
+          `Summarize the following article chunk into up to ${bullets} bullet points.`,
+          `Length focus: ${length} (short=very brief; medium=balanced; long=more detail).`,
+          `${includeQuotes ? 'If there are short, verbatim key quotes (<=20 words), include 1–2 inline in quotes.' : 'Do not include verbatim quotes.'}`,
+          'Avoid repeating the title or already-stated bullets. Use neutral tone.',
+          '\n--- CHUNK START ---\n',
+          content,
+          '\n--- CHUNK END ---'
+        ].join('\n') }
+      ],
+      temperature: 0.2
+    });
+    partials.push(summary);
+  }
+
+  // 2) Reduce: combine partials into a final concise set
+  const combined = await callOpenAI({
+    model,
+    messages: [
+      { role: 'system', content: 'You combine multiple chunk summaries into one concise, non-redundant summary.' },
+      { role: 'user', content: [
+        `Merge the following chunk summaries into a single summary with up to ${bullets} bullets.`,
+        `Length focus: ${length}.`,
+        'Eliminate duplicates, keep facts, and preserve important numbers, names, dates.',
+        includeQuotes ? 'Preserve at most 1–2 short quotes if essential.' : 'Remove any quotes.',
+        '\n--- SUMMARIES START ---\n',
+        partials.join('\n\n'),
+        '\n--- SUMMARIES END ---'
+      ].join('\n') }
+    ],
+    temperature: 0.2
+  });
+
+  return { partials, final: combined };
+}
+```
+
+### 2.8 `routes/summarize.js`
+
+```js
+import { Router } from 'express';
+import { fetchAndExtract } from '../utils/fetchAndExtract.js';
+import { chunkText } from '../utils/chunk.js';
+import { summarizeChunks } from '../utils/summarizeLLM.js';
+
+const r = Router();
+
+r.post('/', async (req, res) => {
+  try {
+    const { url, bullets = 7, length = 'medium', includeQuotes = false, model = 'gpt-4o-mini' } = req.body || {};
+    if (!process.env.OPENAI_API_KEY) return res.status(500).json({ error: 'Missing OPENAI_API_KEY' });
+    if (!url || !/^https?:\/\//i.test(url)) return res.status(400).json({ error: 'Valid url required' });
+
+    const { title, text } = await fetchAndExtract(url);
+    if (!text) return res.json({ title, url, summary: 'No main content found.', meta: { chunks: 0, words: 0 } });
+
+    const chunks = chunkText(text);
+    const { final, partials } = await summarizeChunks({ chunks, bullets, length, includeQuotes, model });
+
+    const words = text.split(/\s+/).filter(Boolean).length;
+
+    res.json({
+      title,
+      url,
+      summary: final,
+      meta: { chunks: chunks.length, words, bullets, length, includeQuotes, model }
+    });
+  } catch (e) {
+    res.status(500).json({ error: String(e.message || e) });
+  }
+});
+
+export default r;
+```
+
+---
+
+## 3) Frontend (React + Vite)
+
+### 3.1 Create app & install
+
+```bash
+cd ../
+npm create vite@latest client -- --template react
+cd client
+npm i
+```
+
+### 3.2 `package.json`
+
+```json
+{
+  "name": "web-summarizer-client",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "vite": "^5.4.0"
+  }
+}
+```
+
+### 3.3 `src/api.js`
+
+```js
+const BASE = 'http://localhost:5052';
+
+export async function summarize(url, options) {
+  const r = await fetch(`${BASE}/api/summarize`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url, ...options })
+  });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+```
+
+### 3.4 `src/App.jsx`
+
+```jsx
+import { useState } from 'react';
+import { summarize } from './api.js';
+
+export default function App() {
+  const [url, setUrl] = useState('');
+  const [bullets, setBullets] = useState(7);
+  const [length, setLength] = useState('medium');
+  const [includeQuotes, setIncludeQuotes] = useState(false);
+  const [model, setModel] = useState('gpt-4o-mini');
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState(null);
+  const [error, setError] = useState('');
+
+  async function onSubmit(e) {
+    e.preventDefault();
+    setError('');
+    setResult(null);
+    setLoading(true);
+    try {
+      const data = await summarize(url, { bullets, length, includeQuotes, model });
+      setResult(data);
+    } catch (e) {
+      setError(String(e.message || e));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div style={{ maxWidth:900, margin:'0 auto', padding:16, fontFamily:'system-ui, sans-serif' }}>
+      <h2>Summarize Webpage</h2>
+      <form onSubmit={onSubmit} style={{ display:'grid', gap:12, marginBottom:16 }}>
+        <input
+          value={url}
+          onChange={e=>setUrl(e.target.value)}
+          placeholder="https://example.com/article"
+          style={{ padding:10, border:'1px solid #ddd', borderRadius:8 }}
+        />
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr 1fr', gap:8 }}>
+          <label>Bullets
+            <input type="number" min={3} max={15} value={bullets}
+              onChange={e=>setBullets(Number(e.target.value))}
+              style={{ width:'100%', padding:8, border:'1px solid #ddd', borderRadius:8 }} />
+          </label>
+          <label>Length
+            <select value={length} onChange={e=>setLength(e.target.value)}
+              style={{ width:'100%', padding:8, border:'1px solid #ddd', borderRadius:8 }}>
+              <option value="short">short</option>
+              <option value="medium">medium</option>
+              <option value="long">long</option>
+            </select>
+          </label>
+          <label>Include quotes?
+            <input type="checkbox" checked={includeQuotes} onChange={e=>setIncludeQuotes(e.target.checked)} />
+          </label>
+          <label>Model
+            <input value={model} onChange={e=>setModel(e.target.value)}
+              style={{ width:'100%', padding:8, border:'1px solid #ddd', borderRadius:8 }} />
+          </label>
+        </div>
+        <button type="submit" disabled={loading || !url}
+          style={{ padding:'10px 12px', borderRadius:8, border:'1px solid #ddd', background:'#111', color:'#fff' }}>
+          {loading ? 'Summarizing…' : 'Summarize'}
+        </button>
+      </form>
+
+      {error && <div style={{ color:'#b00020' }}>⚠️ {error}</div>}
+
+      {result && (
+        <div style={{ border:'1px solid #eee', borderRadius:10, padding:12 }}>
+          <div style={{ fontSize:12, opacity:0.7, marginBottom:4 }}>{result.url}</div>
+          <h3 style={{ marginTop:0 }}>{result.title}</h3>
+          <pre style={{ whiteSpace:'pre-wrap' }}>{result.summary}</pre>
+          <div style={{ fontSize:12, opacity:0.7, marginTop:8 }}>
+            {result.meta.chunks} chunk(s) · ~{result.meta.words} words · bullets={result.meta.bullets} · {result.meta.length}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+```
+
+### 3.5 `src/main.jsx`
+
+```jsx
+import React from 'react'
+import ReactDOM from 'react-dom/client'
+import App from './App.jsx'
+
+ReactDOM.createRoot(document.getElementById('root')).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>,
+)
+```
+
+### 3.6 `index.html`
+
+```html
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Web Summarizer</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
+```
+
+---
+
+## 4) Run locally
+
+In one terminal:
+
+```bash
+cd web-summarizer/server
+npm i
+node server.js
+```
+
+In another terminal:
+
+```bash
+cd web-summarizer/client
+npm i
+npm run dev
+```
+
+Open the shown localhost URL.
+
+---
+
+## 5) How it works (token budgeting + map‑reduce)
+
+* **Extract main text** with Mozilla Readability (via JSDOM), then normalize and filter junk lines.
+* **Chunk** to ~4k tokens (rough char heuristic) to avoid context overflow.
+* **Map step**: summarize each chunk with a strict prompt (bullets/quotes/length knobs).
+* **Reduce step**: merge chunk summaries; remove duplicates; keep facts and numbers.
+
+---
+
+## 6) Nice next steps (pick any)
+
+* SSE **streaming** of the final combine step (send chunks as they arrive)
+* Respect **robots.txt** and add an **allowlist** for hosts
+* Cache extracted text by URL (e.g., in Mongo) with ETag/Last‑Modified headers
+* Add **language detection** and request summaries in that language
+* Output as **Markdown**; add a Copy button / Download .md
+* Add **"key takeaways"** vs **"news timeline"** modes (different prompts)
+* Switch providers or add a **provider dropdown**
+
+
+You got it! I’ve put a complete **Webpage Summarizer (MERN) starter** in the canvas with copy-paste code:
+
+* **Express** API: `/api/summarize` fetches the URL, extracts clean text (Readability), chunks it (token budgeting), and runs a **map-reduce** summary with an LLM.
+* **React** UI: paste a URL, choose **bullets / length / include quotes / model**, and get a clean summary.
+
+### Quick start
+
+1. Backend
+
+```
+cd web-summarizer/server
+npm i
+# add OPENAI_API_KEY in server/.env
+node server.js
+```
+
+2. Frontend
+
+```
+cd web-summarizer/client
+npm i
+npm run dev
+```
+
+### What you’ll learn here
+
+* **Server-side scraping** with jsdom + Readability
+* **Text cleaning** and de-junking
+* **Chunking & token budgeting** (~4 chars ≈ 1 token heuristic)
+* **Concise prompting** (bullets, quotes, length)
+* **Map → Reduce** summarization pattern
+
+Want me to add **SSE streaming**, a **Markdown export button**, or a **Mongo cache** for previously summarized URLs next?
