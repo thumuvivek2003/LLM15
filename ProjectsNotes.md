@@ -1759,3 +1759,650 @@ npm run dev
 * **Map → Reduce** summarization pattern
 
 Want me to add **SSE streaming**, a **Markdown export button**, or a **Mongo cache** for previously summarized URLs next?
+
+
+# Markdown Notes TL;DR (MERN) — Starter
+
+A copy‑pasteable MERN mini‑app to **upload .md / .txt**, **chunk & summarize**, and output either **TL;DR bullets**, **meeting minutes**, or a **brief**. You’ll practice **file uploads**, **secure storage basics**, **rate limiting**, and **map‑reduce prompts**.
+
+---
+
+## 0) What you’ll build
+
+* **Backend (Express)**
+
+  * `/api/notes/summarize` — `multipart/form-data` upload of `.md`/`.txt`
+  * Validates, stores file (temporary), reads text, chunks, summarizes via OpenAI.
+  * Rate limited; rejects other MIME types; deletes temp file after use.
+* **Frontend (React + Vite)**
+
+  * Drag/drop or file picker, options (mode, bullets, length, quotes), result pane.
+
+---
+
+## 1) Folder layout
+
+```
+notes-tldr/
+  server/
+    package.json
+    .env
+    server.js
+    routes/notes.js
+    utils/chunk.js
+    utils/summarizeLLM.js
+    utils/readText.js
+    uploads/              # temp files (gitignore it)
+  client/
+    package.json
+    vite.config.js
+    index.html
+    src/
+      main.jsx
+      App.jsx
+      api.js
+      DropZone.jsx
+```
+
+> Make sure `server/uploads/` exists. Add it to `.gitignore`.
+
+---
+
+## 2) Backend (Express)
+
+### 2.1 Install
+
+```bash
+mkdir -p notes-tldr/server && cd notes-tldr/server
+npm init -y
+npm i express cors dotenv multer express-rate-limit marked
+```
+
+> Node 18+ has `fetch` built‑in. If on older Node: `npm i node-fetch` and import it.
+
+### 2.2 `.env`
+
+```
+PORT=5053
+OPENAI_API_KEY=sk-...your key...
+MAX_FILE_MB=5
+```
+
+### 2.3 `package.json`
+
+```json
+{
+  "name": "notes-tldr-server",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "express-rate-limit": "^7.3.0",
+    "marked": "^12.0.2",
+    "multer": "^1.4.5-lts.1"
+  }
+}
+```
+
+### 2.4 `server.js`
+
+```js
+import 'dotenv/config';
+import express from 'express';
+import cors from 'cors';
+import rateLimit from 'express-rate-limit';
+import notesRouter from './routes/notes.js';
+
+const app = express();
+app.use(cors());
+app.use(express.json({ limit: '1mb' }));
+
+const limiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 40,                  // 40 requests / hour / IP
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use(limiter);
+
+app.get('/health', (_req, res) => res.json({ ok: true }));
+app.use('/api/notes', notesRouter);
+
+const PORT = process.env.PORT || 5053;
+app.listen(PORT, () => console.log(`Server listening on http://localhost:${PORT}`));
+```
+
+### 2.5 `utils/readText.js`
+
+````js
+import fs from 'fs/promises';
+import path from 'path';
+import { marked } from 'marked';
+
+// Convert Markdown → plain text while keeping headings & lists readable
+function markdownToText(md) {
+  // marked can tokenize; we’ll do a very light conversion
+  // Strip code fences lightly but keep content
+  let text = md
+    .replace(/```[\s\S]*?```/g, m => '\n\n' + m.replace(/```/g, '') + '\n\n')
+    .replace(/<[^>]+>/g, '') // strip HTML tags
+    .replace(/\[(.*?)\]\((.*?)\)/g, '$1') // links -> text
+    .replace(/^\s*#+\s*/gm, m => m.replace(/#+/g, '#')) // normalize #s
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/\*([^*]+)\*/g, '$1')
+    .replace(/^-\s+/gm, '• ')
+    .replace(/^\d+\.\s+/gm, m => '• ')
+    .replace(/\r/g, '')
+    .replace(/\t/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+  return text;
+}
+
+export async function readUploadedText(filePath, originalName) {
+  const ext = path.extname(originalName).toLowerCase();
+  const raw = await fs.readFile(filePath, 'utf8');
+  if (ext === '.md' || ext === '.markdown' || /\n#|\n-\s|\n\d+\./.test(raw)) {
+    return markdownToText(raw);
+  }
+  // .txt fallback
+  return raw
+    .replace(/\r/g, '')
+    .replace(/\t/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+````
+
+### 2.6 `utils/chunk.js`
+
+```js
+// Very rough token estimate: ~4 chars ≈ 1 token
+const MAX_CHARS = 3500 * 4; // ~3.5k tokens target
+
+export function chunkText(text) {
+  if (!text) return [];
+  // Prefer splitting on headings first
+  const blocks = text.split(/\n(?=#[^\n]*\n)|\n\n+/);
+  const chunks = [];
+  let buf = '';
+
+  for (const b of blocks) {
+    const piece = b.trim();
+    if (!piece) continue;
+    if ((buf + '\n\n' + piece).length > MAX_CHARS) {
+      if (buf) chunks.push(buf.trim());
+      if (piece.length > MAX_CHARS) {
+        for (let i = 0; i < piece.length; i += MAX_CHARS) {
+          chunks.push(piece.slice(i, i + MAX_CHARS));
+        }
+        buf = '';
+      } else {
+        buf = piece;
+      }
+    } else {
+      buf = buf ? buf + '\n\n' + piece : piece;
+    }
+  }
+  if (buf) chunks.push(buf.trim());
+  return chunks;
+}
+```
+
+### 2.7 `utils/summarizeLLM.js`
+
+```js
+const OPENAI_URL = 'https://api.openai.com/v1/chat/completions';
+
+async function callOpenAI({ model, messages, temperature = 0.2, top_p = 1 }) {
+  const r = await fetch(OPENAI_URL, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ model, messages, temperature, top_p })
+  });
+  if (!r.ok) {
+    const t = await r.text().catch(()=>'(no body)');
+    throw new Error('OpenAI error: ' + t);
+  }
+  const json = await r.json();
+  return json.choices?.[0]?.message?.content?.trim() || '';
+}
+
+function mapPrompt(mode, bullets, length, includeQuotes, chunk) {
+  const style = (
+    mode === 'minutes' ? 'Produce structured meeting minutes with sections: Attendees (if present), Agenda, Decisions, Action Items (owner + due date if given), Risks/Blockers.' :
+    mode === 'brief' ? 'Produce an executive brief: Objective, Key Points, Data/Numbers, Risks, Next Steps.' :
+    'Produce a TL;DR list.'
+  );
+  return [
+    `You are a precise summarizer. ${style}`,
+    `Write up to ${bullets} bullets. Length focus: ${length}.`,
+    includeQuotes ? 'If there are short key quotes (<=20 words), include at most 1–2.' : 'Do not include verbatim quotes.',
+    'Stay faithful; do not invent facts; keep dates/numbers.',
+    '\n--- CHUNK START ---\n',
+    chunk,
+    '\n--- CHUNK END ---'
+  ].join('\n');
+}
+
+export async function summarizeChunks({ chunks, mode, bullets, length, includeQuotes, model = 'gpt-4o-mini' }) {
+  // Map: summarize each chunk in the selected style
+  const partials = [];
+  for (const c of chunks) {
+    const summary = await callOpenAI({
+      model,
+      messages: [
+        { role: 'system', content: 'You summarize long notes faithfully and concisely.' },
+        { role: 'user', content: mapPrompt(mode, bullets, length, includeQuotes, c) }
+      ],
+      temperature: 0.2
+    });
+    partials.push(summary);
+  }
+
+  // Reduce: merge partials into a single non‑redundant output
+  const style = (
+    mode === 'minutes' ? 'Merge into clean meeting minutes with the same sections.' :
+    mode === 'brief' ? 'Merge into a tight executive brief (Objective, Key Points, Data/Numbers, Risks, Next Steps).' :
+    'Merge into TL;DR bullets.'
+  );
+
+  const final = await callOpenAI({
+    model,
+    messages: [
+      { role: 'system', content: 'You merge summaries into one concise, non‑redundant result. Keep numbers/names/dates accurate.' },
+      { role: 'user', content: [
+        `${style} Up to ${bullets} bullets. Length focus: ${length}.`,
+        'Eliminate duplicates; keep critical facts and decisions.',
+        includeQuotes ? 'Preserve at most 1–2 essential short quotes.' : 'Remove any quotes.',
+        '\n--- SUMMARIES START ---\n',
+        partials.join('\n\n'),
+        '\n--- SUMMARIES END ---'
+      ].join('\n') }
+    ],
+    temperature: 0.2
+  });
+
+  return { partials, final };
+}
+```
+
+### 2.8 `routes/notes.js`
+
+```js
+import { Router } from 'express';
+import multer from 'multer';
+import fs from 'fs/promises';
+import path from 'path';
+import crypto from 'crypto';
+import { readUploadedText } from '../utils/readText.js';
+import { chunkText } from '../utils/chunk.js';
+import { summarizeChunks } from '../utils/summarizeLLM.js';
+
+const r = Router();
+
+const uploadDir = path.join(process.cwd(), 'uploads');
+
+const storage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, uploadDir),
+  filename: (_req, file, cb) => {
+    const id = crypto.randomBytes(16).toString('hex');
+    const ext = path.extname(file.originalname).toLowerCase();
+    cb(null, id + ext);
+  }
+});
+
+const maxMB = Number(process.env.MAX_FILE_MB || 5);
+const upload = multer({
+  storage,
+  limits: { fileSize: maxMB * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const ok = ['.md', '.markdown', '.txt'].includes(path.extname(file.originalname).toLowerCase());
+    cb(ok ? null : new Error('Only .md/.markdown/.txt allowed'), ok);
+  }
+});
+
+r.post('/summarize', upload.single('file'), async (req, res) => {
+  if (!process.env.OPENAI_API_KEY) return res.status(500).json({ error: 'Missing OPENAI_API_KEY' });
+  const { mode = 'tldr', bullets = 7, length = 'medium', includeQuotes = false, model = 'gpt-4o-mini' } = req.body || {};
+
+  if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+
+  const tmpPath = req.file.path;
+  try {
+    const text = await readUploadedText(tmpPath, req.file.originalname);
+    if (!text || text.length < 50) {
+      return res.json({ summary: 'No meaningful text found.', meta: { chunks: 0, words: 0 } });
+    }
+
+    const chunks = chunkText(text);
+    const { final, partials } = await summarizeChunks({
+      chunks,
+      mode,
+      bullets: Number(bullets),
+      length,
+      includeQuotes: String(includeQuotes) === 'true' || includeQuotes === true,
+      model
+    });
+
+    const words = text.split(/\s+/).filter(Boolean).length;
+
+    res.json({
+      file: req.file.originalname,
+      summary: final,
+      meta: { chunks: chunks.length, words, bullets: Number(bullets), length, mode, includeQuotes: !!includeQuotes, model }
+    });
+  } catch (e) {
+    res.status(500).json({ error: String(e.message || e) });
+  } finally {
+    // Delete temp file
+    fs.unlink(tmpPath).catch(() => {});
+  }
+});
+
+export default r;
+```
+
+---
+
+## 3) Frontend (React + Vite)
+
+### 3.1 Create app & install
+
+```bash
+cd ../
+npm create vite@latest client -- --template react
+cd client
+npm i
+```
+
+### 3.2 `package.json`
+
+```json
+{
+  "name": "notes-tldr-client",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "vite": "^5.4.0"
+  }
+}
+```
+
+### 3.3 `src/api.js`
+
+```js
+const BASE = 'http://localhost:5053';
+
+export async function uploadAndSummarize({ file, mode, bullets, length, includeQuotes, model }) {
+  const fd = new FormData();
+  fd.append('file', file);
+  fd.append('mode', mode);
+  fd.append('bullets', String(bullets));
+  fd.append('length', length);
+  fd.append('includeQuotes', String(includeQuotes));
+  fd.append('model', model);
+
+  const r = await fetch(`${BASE}/api/notes/summarize`, { method: 'POST', body: fd });
+  if (!r.ok) {
+    const t = await r.text().catch(()=> '');
+    throw new Error(t || 'Upload failed');
+  }
+  return r.json();
+}
+```
+
+### 3.4 `src/DropZone.jsx`
+
+```jsx
+import { useCallback, useState } from 'react';
+
+export default function DropZone({ onFile }) {
+  const [hover, setHover] = useState(false);
+  const onDrop = useCallback((e) => {
+    e.preventDefault();
+    setHover(false);
+    const f = e.dataTransfer.files?.[0];
+    if (f) onFile(f);
+  }, [onFile]);
+  return (
+    <div
+      onDragOver={(e) => { e.preventDefault(); setHover(true); }}
+      onDragLeave={() => setHover(false)}
+      onDrop={onDrop}
+      style={{
+        padding: 24,
+        border: '2px dashed #ccc',
+        borderRadius: 12,
+        textAlign: 'center',
+        background: hover ? '#f8f8ff' : 'transparent'
+      }}
+    >
+      <div style={{ marginBottom: 8 }}>Drag & drop .md/.txt here</div>
+      <div>or</div>
+      <label style={{ display: 'inline-block', marginTop: 8 }}>
+        <input type="file" accept=".md,.markdown,.txt" style={{ display: 'none' }} onChange={e => e.target.files[0] && onFile(e.target.files[0])} />
+        <span style={{ padding: '8px 12px', border: '1px solid #ddd', borderRadius: 8, cursor: 'pointer' }}>Choose file</span>
+      </label>
+    </div>
+  );
+}
+```
+
+### 3.5 `src/App.jsx`
+
+```jsx
+import { useState } from 'react';
+import DropZone from './DropZone.jsx';
+import { uploadAndSummarize } from './api.js';
+
+export default function App() {
+  const [file, setFile] = useState(null);
+  const [mode, setMode] = useState('tldr'); // 'tldr' | 'minutes' | 'brief'
+  const [bullets, setBullets] = useState(7);
+  const [length, setLength] = useState('medium');
+  const [includeQuotes, setIncludeQuotes] = useState(false);
+  const [model, setModel] = useState('gpt-4o-mini');
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState(null);
+  const [error, setError] = useState('');
+
+  async function onGo() {
+    setError('');
+    setResult(null);
+    if (!file) { setError('Pick a file first'); return; }
+    setLoading(true);
+    try {
+      const res = await uploadAndSummarize({ file, mode, bullets, length, includeQuotes, model });
+      setResult(res);
+    } catch (e) {
+      setError(String(e.message || e));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div style={{ maxWidth: 900, margin: '0 auto', padding: 16, fontFamily: 'system-ui, sans-serif' }}>
+      <h2>Markdown Notes TL;DR</h2>
+      <DropZone onFile={setFile} />
+      {file && <div style={{ marginTop: 8, fontSize: 12, opacity: 0.8 }}>Selected: <b>{file.name}</b> ({Math.round(file.size/1024)} KB)</div>}
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 8, marginTop: 12 }}>
+        <label>Mode
+          <select value={mode} onChange={e=>setMode(e.target.value)} style={{ width:'100%', padding:8, border:'1px solid #ddd', borderRadius:8 }}>
+            <option value="tldr">TL;DR</option>
+            <option value="minutes">Meeting Minutes</option>
+            <option value="brief">Executive Brief</option>
+          </select>
+        </label>
+        <label>Bullets
+          <input type="number" min={3} max={20} value={bullets} onChange={e=>setBullets(Number(e.target.value))}
+            style={{ width:'100%', padding:8, border:'1px solid #ddd', borderRadius:8 }} />
+        </label>
+        <label>Length
+          <select value={length} onChange={e=>setLength(e.target.value)} style={{ width:'100%', padding:8, border:'1px solid #ddd', borderRadius:8 }}>
+            <option value="short">short</option>
+            <option value="medium">medium</option>
+            <option value="long">long</option>
+          </select>
+        </label>
+        <label>Include quotes?
+          <input type="checkbox" checked={includeQuotes} onChange={e=>setIncludeQuotes(e.target.checked)} />
+        </label>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 12 }}>
+        <label>Model
+          <input value={model} onChange={e=>setModel(e.target.value)} style={{ width:'100%', padding:8, border:'1px solid #ddd', borderRadius:8 }} />
+        </label>
+        <div style={{ display:'flex', alignItems:'end', gap:8 }}>
+          <button onClick={onGo} disabled={loading || !file} style={{ padding:'10px 12px', borderRadius:8, border:'1px solid #ddd', background:'#111', color:'#fff' }}>
+            {loading ? 'Summarizing…' : 'Summarize'}
+          </button>
+        </div>
+      </div>
+
+      {error && <div style={{ color:'#b00020', marginTop:8 }}>⚠️ {error}</div>}
+
+      {result && (
+        <div style={{ border:'1px solid #eee', borderRadius: 10, padding: 12, marginTop: 12 }}>
+          <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 4 }}>{result.file}</div>
+          <pre style={{ whiteSpace: 'pre-wrap', margin: 0 }}>{result.summary}</pre>
+          <div style={{ fontSize: 12, opacity: 0.7, marginTop: 8 }}>
+            {result.meta.chunks} chunk(s) · ~{result.meta.words} words · bullets={result.meta.bullets} · {result.meta.length} · mode={result.meta.mode}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+```
+
+### 3.6 `src/main.jsx`
+
+```jsx
+import React from 'react'
+import ReactDOM from 'react-dom/client'
+import App from './App.jsx'
+
+ReactDOM.createRoot(document.getElementById('root')).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>,
+)
+```
+
+### 3.7 `index.html`
+
+```html
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Notes TL;DR</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
+```
+
+---
+
+## 4) Run locally
+
+In one terminal:
+
+```bash
+cd notes-tldr/server
+npm i
+mkdir -p uploads
+node server.js
+```
+
+In another terminal:
+
+```bash
+cd notes-tldr/client
+npm i
+npm run dev
+```
+
+Open the shown localhost URL.
+
+---
+
+## 5) Security & robustness notes
+
+* **Key safety**: API key stays on server. Never expose to browser.
+* **Rate limiting**: basic per‑IP limit is enabled (adjust values for your needs).
+* **File types**: only `.md/.markdown/.txt` accepted; size limited via `MAX_FILE_MB`.
+* **Storage**: files are written to `uploads/` and **deleted immediately** after processing.
+* **Do not serve** `uploads/` statically. For production, consider S3 or GridFS with signed URLs, or process in memory for small files.
+* **Prompting**: low temperature for faithful summaries; map‑reduce preserves structure.
+
+---
+
+## 6) Good next steps
+
+* Add **SSE streaming** for the reduce step so users see output as it forms.
+* Persist uploaded files & summaries in **MongoDB** (with user auth) for history.
+* Add **owner assignment + due date detection** for minutes via simple regex/NLP pass.
+* Add **language detection** and summarize in the same language.
+* Add a **Download .md** button and copy‑to‑clipboard.
+* Integrate **AbortController** to cancel long runs.
+
+
+
+Nice—great next step. I’ve added a complete **Markdown Notes TL;DR (MERN) starter** in the canvas with **copy-paste code** for both backend and frontend. It includes:
+
+* **/api/notes/summarize**: accepts `.md/.txt` upload (multer), validates, chunking, **map-reduce prompts**, OpenAI call, temp-file cleanup
+* **Rate limiting** via `express-rate-limit`
+* **Secure storage basics**: only allowlisted file types, size limit, temp file deleted after processing
+* **React UI**: drag/drop, choose **mode** (TL;DR / Meeting Minutes / Executive Brief), **bullets**, **length**, **include quotes**, **model**, and view the formatted result
+
+### Quick start
+
+1. Backend
+
+```
+cd notes-tldr/server
+npm i
+echo -e "PORT=5053\nOPENAI_API_KEY=sk-...\nMAX_FILE_MB=5" > .env
+mkdir -p uploads
+node server.js
+```
+
+2. Frontend
+
+```
+cd notes-tldr/client
+npm i
+npm run dev
+```
+
+Open the shown localhost URL, drop a `.md` or `.txt`, pick a mode, and hit **Summarize**.
+
+Want me to add **SSE streaming**, **Mongo history**, or a **Download .md** button next?
