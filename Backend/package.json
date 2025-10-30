@@ -12,6 +12,7 @@
   "type": "module",
   "dependencies": {
     "@google/genai": "^1.27.0",
+    "@google/generative-ai": "^0.24.1",
     "@mozilla/readability": "^0.6.0",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",

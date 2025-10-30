@@ -1,0 +1,26 @@
+Example 1 Document — Everyday Help Notes
+(Use this single file to test semantic search. Each section has an ID like [S1] so you can see what matched.)
+
+[S1] Returns & Refunds
+You can send an item back within 30 days for a full refund to the original payment method. If the product arrived damaged, include a photo and we’ll cover return shipping.
+
+[S2] Exchange Instead of Refund
+If the size or color isn’t right, you can swap the item for another option instead of getting your money back. Exchanges are also available for gifts.
+
+[S3] Flight Cancellations (Travel Help)
+If an airline cancels your flight, we’ll rebook you on the next available option at no extra cost. If you’re stranded overnight, we can arrange a hotel and meal vouchers.
+
+[S4] Internet Keeps Dropping (Home Wi-Fi)
+Unplug your router and modem for 30 seconds, then plug them back in. Place your router higher up and away from thick walls to improve the signal. If problems continue, contact your internet provider about line issues.
+
+[S5] Phone Battery Drains Fast
+Lower screen brightness, turn off background app refresh, and close navigation apps when not in use. If the battery is older than two years, consider a replacement.
+
+[S6] “Heart Attack” Follow-up (Health)
+After an acute myocardial infarction (AMI), doctors often focus on medications and follow-up within 7–14 days to lower the chance of a 30-day readmission.
+
+[S7] Password Reset
+If you forgot your password, choose “Forgot password” on the sign-in page. We’ll email a reset link that expires in 15 minutes. Check your spam folder.
+
+[S8] Meeting Reschedule
+Need to change your booking? You can reschedule your appointment up to 24 hours before the start time without any fee.
