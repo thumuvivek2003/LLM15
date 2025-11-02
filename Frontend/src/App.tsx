@@ -4,7 +4,8 @@ import './App.css'
 // import P3WebSummarizer from './P3WebSummarizer';
 // import P4MarkDownNotes from './P4MarkDownNotes';
 // import P5PdfRagV1 from './P5PdfRagV1';
-import P6SemanticSearch from './P6SemanticSearch';
+// import P6SemanticSearch from './P6SemanticSearch';
+import P7RagV2Gemini from './P7RagV2Gemini';
 
 
 
@@ -15,7 +16,8 @@ function App() {
     {/* <P3WebSummarizer /> */}
     {/* <P4MarkDownNotes /> */}
     {/* <P5PdfRagV1 /> */}
-    <P6SemanticSearch />
+    {/* <P6SemanticSearch /> */}
+    <P7RagV2Gemini />
   </>
 }
 
