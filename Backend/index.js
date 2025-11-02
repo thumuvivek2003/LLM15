@@ -4,5 +4,5 @@
 // import './P4MarkDownNotes/index.js';
 // import './P5PdfRagV1/index.js';
 // import './P6SemanticSearch/index.js';
-import './P7RagV2Gemini/index.js';
-
+// import './P7RagV2Gemini/index.js';
+import './P8FunctionCalling/index.ts';
