@@ -9,7 +9,8 @@ import './App.css'
 // import P8FunctionCalling from './P8FunctionCalling/App';
 // import P9EmailDrafter from './P9EmailDrafter';
 // import P10ImageAltGen from './P10ImageAltGen';
-import P11ChatVthPostgres from './P11ChatVthPostgres';
+// import P11ChatVthPostgres from './P11ChatVthPostgres';
+import P12TeamPromptLibrary from './P12TeamPromptLibrary';
 
 
 
@@ -25,7 +26,8 @@ function App() {
     {/* <P8FunctionCalling /> */}
     {/* <P9EmailDrafter /> */}
     {/* <P10ImageAltGen /> */}
-    <P11ChatVthPostgres />
+    {/* <P11ChatVthPostgres /> */}
+    <P12TeamPromptLibrary />
   </>
 }
 
