@@ -7,4 +7,5 @@
 // import './P7RagV2Gemini/index.js';
 // import './P8FunctionCalling/index.ts';
 // import './P9EmailDrafter/index.js';
-import './P10ImageAltGen/index.js';
+// import './P10ImageAltGen/index.js';
+import './P11ChatVthPostgres/index.js';

@@ -1,0 +1,5 @@
+const BASE = 'http://localhost:5000';
+export async function getSchema() { const r = await fetch(`${BASE}/api/schema`); if (!r.ok) throw new Error(await r.text()); return r.json(); }
+export async function ask(question) { const r = await fetch(`${BASE}/api/ask`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question }) }); if (!r.ok) throw new Error(await r.text()); return r.json(); }
+export async function search(q, k = 10) { const r = await fetch(`${BASE}/api/search`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ q, k }) }); if (!r.ok) throw new Error(await r.text()); return r.json(); }
+export async function embedAll() { const r = await fetch(`${BASE}/api/admin/embed`, { method: 'POST' }); if (!r.ok) throw new Error(await r.text()); return r.json(); }
