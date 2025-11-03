@@ -7,7 +7,8 @@ import './App.css'
 // import P6SemanticSearch from './P6SemanticSearch';
 // import P7RagV2Gemini from './P7RagV2Gemini';
 // import P8FunctionCalling from './P8FunctionCalling/App';
-import P9EmailDrafter from './P9EmailDrafter';
+// import P9EmailDrafter from './P9EmailDrafter';
+import P10ImageAltGen from './P10ImageAltGen';
 
 
 
@@ -21,7 +22,8 @@ function App() {
     {/* <P6SemanticSearch /> */}
     {/* <P7RagV2Gemini /> */}
     {/* <P8FunctionCalling /> */}
-    <P9EmailDrafter />
+    {/* <P9EmailDrafter /> */}
+    <P10ImageAltGen />
   </>
 }
 
