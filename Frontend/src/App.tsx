@@ -11,7 +11,8 @@ import './App.css'
 // import P10ImageAltGen from './P10ImageAltGen';
 // import P11ChatVthPostgres from './P11ChatVthPostgres';
 // import P12TeamPromptLibrary from './P12TeamPromptLibrary';
-import P13RagWithReRankers from './P13ReRankingInRag';
+// import P13RagWithReRankers from './P13ReRankingInRag';
+import P14GuardrailsModeration from './P14GuardrailsModeration'
 
 
 
@@ -29,7 +30,8 @@ function App() {
     {/* <P10ImageAltGen /> */}
     {/* <P11ChatVthPostgres /> */}
     {/* <P12TeamPromptLibrary /> */}
-    <P13RagWithReRankers />
+    {/* <P13RagWithReRankers /> */}
+    <P14GuardrailsModeration />
   </>
 }
 

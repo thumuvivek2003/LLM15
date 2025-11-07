@@ -3,7 +3,7 @@ import express from 'express';
 import cors from 'cors';
 import rateLimit from 'express-rate-limit';
 import { Pool } from 'pg';
-import { GoogleGenAI } from "@google/genai";
+import { - } from "@google/genai";
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { z } from 'zod';
 

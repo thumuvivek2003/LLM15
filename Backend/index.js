@@ -10,4 +10,5 @@
 // import './P10ImageAltGen/index.js';
 // import './P11ChatVthPostgres/index.js';
 // import './P12TeamPromptLibrary/index.js';
-import './P13ReRankingInRag/index.js';
+// import './P13ReRankingInRag/index.js';
+import './P14GuardrailsModeration/index.js';

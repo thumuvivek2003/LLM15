@@ -1,0 +1,5 @@
+const BASE = 'http://localhost:5000';
+export async function modCheck(message) { const r = await fetch(`${BASE}/api/mod/check`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message }) }); if (!r.ok) throw new Error(await r.text()); return r.json(); }
+export async function chat(message, history) { const r = await fetch(`${BASE}/api/chat`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message, history }) }); if (!r.ok) throw new Error(await r.text()); return r.json(); }
+export async function runRed(tests) { const r = await fetch(`${BASE}/api/redteam/run`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tests }) }); if (!r.ok) throw new Error(await r.text()); return r.json(); }
+export async function incidents() { const r = await fetch(`${BASE}/api/incidents`); if (!r.ok) throw new Error(await r.text()); return r.json(); }
