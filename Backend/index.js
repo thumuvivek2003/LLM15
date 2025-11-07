@@ -9,4 +9,5 @@
 // import './P9EmailDrafter/index.js';
 // import './P10ImageAltGen/index.js';
 // import './P11ChatVthPostgres/index.js';
-import './P12TeamPromptLibrary/index.js';
+// import './P12TeamPromptLibrary/index.js';
+import './P13ReRankingInRag/index.js';

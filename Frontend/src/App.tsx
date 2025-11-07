@@ -10,7 +10,8 @@ import './App.css'
 // import P9EmailDrafter from './P9EmailDrafter';
 // import P10ImageAltGen from './P10ImageAltGen';
 // import P11ChatVthPostgres from './P11ChatVthPostgres';
-import P12TeamPromptLibrary from './P12TeamPromptLibrary';
+// import P12TeamPromptLibrary from './P12TeamPromptLibrary';
+import P13RagWithReRankers from './P13ReRankingInRag';
 
 
 
@@ -27,7 +28,8 @@ function App() {
     {/* <P9EmailDrafter /> */}
     {/* <P10ImageAltGen /> */}
     {/* <P11ChatVthPostgres /> */}
-    <P12TeamPromptLibrary />
+    {/* <P12TeamPromptLibrary /> */}
+    <P13RagWithReRankers />
   </>
 }
 

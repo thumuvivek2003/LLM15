@@ -1,0 +1,6 @@
+const BASE = 'http://localhost:5000';
+export async function listDocs() { const r = await fetch(`${BASE}/api/docs`); if (!r.ok) throw new Error(await r.text()); return r.json(); }
+export async function upload(file) { const fd = new FormData(); fd.append('file', file); const r = await fetch(`${BASE}/api/docs/upload`, { method: 'POST', body: fd }); if (!r.ok) throw new Error(await r.text()); return r.json(); }
+export async function search(q, rerank) { const r = await fetch(`${BASE}/api/search`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ q, rerank }) }); if (!r.ok) throw new Error(await r.text()); return r.json(); }
+export async function answer(q, rerank) { const r = await fetch(`${BASE}/api/answer`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ q, rerank }) }); if (!r.ok) throw new Error(await r.text()); return r.json(); }
+export async function runEval(payload) { const r = await fetch(`${BASE}/api/eval/run`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); if (!r.ok) throw new Error(await r.text()); return r.json(); }
