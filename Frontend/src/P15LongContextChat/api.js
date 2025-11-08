@@ -1,0 +1,7 @@
+const BASE = 'http://localhost:5000';
+export async function createThread() { const r = await fetch(`${BASE}/api/thread`, { method: 'POST' }); if (!r.ok) throw new Error(await r.text()); return r.json(); }
+export async function getThread(id) { const r = await fetch(`${BASE}/api/thread/${id}`); if (!r.ok) throw new Error(await r.text()); return r.json(); }
+export async function sendMsg(id, message, useMemory = true) { const r = await fetch(`${BASE}/api/thread/${id}/chat`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message, useMemory }) }); if (!r.ok) throw new Error(await r.text()); return r.json(); }
+export async function getSummary(id) { const r = await fetch(`${BASE}/api/thread/${id}`); if (!r.ok) throw new Error(await r.text()); const j = await r.json(); return j.memory; }
+export async function patchSummary(id, body) { const r = await fetch(`${BASE}/api/thread/${id}/summary`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }); if (!r.ok) throw new Error(await r.text()); return r.json(); }
+export async function recap(id) { const r = await fetch(`${BASE}/api/thread/${id}/recap`, { method: 'POST' }); if (!r.ok) throw new Error(await r.text()); return r.json(); }

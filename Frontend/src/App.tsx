@@ -12,7 +12,8 @@ import './App.css'
 // import P11ChatVthPostgres from './P11ChatVthPostgres';
 // import P12TeamPromptLibrary from './P12TeamPromptLibrary';
 // import P13RagWithReRankers from './P13ReRankingInRag';
-import P14GuardrailsModeration from './P14GuardrailsModeration'
+// import P14GuardrailsModeration from './P14GuardrailsModeration'
+import P15LongContextChat from './P15LongContextChat';
 
 
 
@@ -31,7 +32,8 @@ function App() {
     {/* <P11ChatVthPostgres /> */}
     {/* <P12TeamPromptLibrary /> */}
     {/* <P13RagWithReRankers /> */}
-    <P14GuardrailsModeration />
+    {/* <P14GuardrailsModeration /> */}
+    <P15LongContextChat />
   </>
 }
 
