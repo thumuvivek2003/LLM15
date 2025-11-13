@@ -1,0 +1,4 @@
+const BASE = 'http://localhost:5000';
+export async function plan(goal) { const r = await fetch(`${BASE}/api/agent/plan`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ goal }) }); if (!r.ok) throw new Error(await r.text()); return r.json(); }
+export async function submit(goal, plan, idempotencyKey) { const r = await fetch(`${BASE}/api/agent/submit`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ goal, plan, idempotencyKey }) }); if (!r.ok) throw new Error(await r.text()); return r.json(); }
+export async function job(id) { const r = await fetch(`${BASE}/api/jobs/${id}`); if (!r.ok) throw new Error(await r.text()); return r.json(); }

@@ -13,7 +13,8 @@ import './App.css'
 // import P12TeamPromptLibrary from './P12TeamPromptLibrary';
 // import P13RagWithReRankers from './P13ReRankingInRag';
 // import P14GuardrailsModeration from './P14GuardrailsModeration'
-import P15LongContextChat from './P15LongContextChat';
+// import P15LongContextChat from './P15LongContextChat';
+import P16AgentWithTaskQueue from './P16AgentWithTaskQueue';
 
 
 
@@ -33,7 +34,8 @@ function App() {
     {/* <P12TeamPromptLibrary /> */}
     {/* <P13RagWithReRankers /> */}
     {/* <P14GuardrailsModeration /> */}
-    <P15LongContextChat />
+    {/* <P15LongContextChat /> */}
+    <P16AgentWithTaskQueue />
   </>
 }
 

@@ -4,7 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "worker":"nodemon Backend/P16AgentWithTaskQueue/worker.js"
   },
   "keywords": [],
   "author": "",
@@ -15,6 +16,7 @@
     "@google/generative-ai": "^0.24.1",
     "@mozilla/readability": "^0.6.0",
     "bcrypt": "^6.0.0",
+    "bullmq": "^5.63.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
@@ -24,13 +26,17 @@
     "googleapis": "^164.1.0",
     "html-entities": "^2.6.0",
     "html-to-text": "^9.0.5",
+    "ioredis": "^5.8.2",
     "jsdom": "^27.0.1",
     "jsonwebtoken": "^9.0.2",
     "marked": "^16.4.1",
     "mongoose": "^8.19.3",
     "multer": "^2.0.2",
+    "node-fetch": "^3.3.2",
+    "nodemailer": "^7.0.10",
     "pdf-parse": "^2.4.5",
     "pg": "^8.16.3",
+    "socket.io": "^4.8.1",
     "zod": "^4.1.12"
   }
 }
