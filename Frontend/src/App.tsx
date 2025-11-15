@@ -1,5 +1,5 @@
 import './App.css'
-// import P1ChatUI from './P1Chat'
+import P1ChatUI from './P1Chat'
 // import P2PlayGround from './P2PlayGround';
 // import P3WebSummarizer from './P3WebSummarizer';
 // import P4MarkDownNotes from './P4MarkDownNotes';
@@ -14,14 +14,14 @@ import './App.css'
 // import P13RagWithReRankers from './P13ReRankingInRag';
 // import P14GuardrailsModeration from './P14GuardrailsModeration'
 // import P15LongContextChat from './P15LongContextChat';
-import P16AgentWithTaskQueue from './P16AgentWithTaskQueue';
+// import P16AgentWithTaskQueue from './P16AgentWithTaskQueue';
 
 
 
 function App() {
   return <>
+    <P1ChatUI />
     {/* <P2PlayGround /> */}
-    {/* <P1ChatUI /> */}
     {/* <P3WebSummarizer /> */}
     {/* <P4MarkDownNotes /> */}
     {/* <P5PdfRagV1 /> */}
@@ -35,7 +35,7 @@ function App() {
     {/* <P13RagWithReRankers /> */}
     {/* <P14GuardrailsModeration /> */}
     {/* <P15LongContextChat /> */}
-    <P16AgentWithTaskQueue />
+    {/* <P16AgentWithTaskQueue /> */}
   </>
 }
 

@@ -1,4 +1,4 @@
-// import './P1Chat/index.js';
+import './P1Chat/index.js';
 // import './P2PlayGround/index.js';
 // import './P3WebSummarizer/index.js';
 // import './P4MarkDownNotes/index.js';
@@ -13,4 +13,4 @@
 // import './P13ReRankingInRag/index.js';
 // import './P14GuardrailsModeration/index.js';
 // import './P15LongContextChat/index.js';
-import './P16AgentWithTaskQueue/index.js';
+// import './P16AgentWithTaskQueue/index.js';
