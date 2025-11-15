@@ -1,6 +1,6 @@
 // api.js — frontend API helpers aligned with the new backend
 
-const BASE =  'http://localhost:5050';
+const BASE =  'http://localhost:5000';
 
 // ---- Docs ----
 

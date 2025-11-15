@@ -1,4 +1,4 @@
-const BASE = 'http://localhost:5057';
+const BASE = 'http://localhost:5000';
 export type Msg = { role: 'user' | 'assistant'; content: string };
 
 

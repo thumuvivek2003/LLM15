@@ -1,4 +1,4 @@
-const BASE = 'http://localhost:5050';
+const BASE = 'http://localhost:5000';
 
 
 export async function summarize(url, options) {

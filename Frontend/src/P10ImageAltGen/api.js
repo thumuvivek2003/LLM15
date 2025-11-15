@@ -1,4 +1,4 @@
-const BASE = 'http://localhost:5059';
+const BASE = 'http://localhost:5000';
 
 
 export async function listImages() { const r = await fetch(`${BASE}/api/images`); if (!r.ok) throw new Error(await r.text()); return r.json(); }

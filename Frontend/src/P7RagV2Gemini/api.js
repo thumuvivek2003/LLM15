@@ -1,4 +1,4 @@
-const BASE = 'http://localhost:5056';
+const BASE = 'http://localhost:5000';
 
 
 export async function startConversation({ title, docFilterIds = [] }) {

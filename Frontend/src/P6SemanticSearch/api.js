@@ -1,4 +1,4 @@
-const BASE = 'http://localhost:5050';
+const BASE = 'http://localhost:5000';
 
 
 export async function listDocs() { const r = await fetch(`${BASE}/api/docs`); if (!r.ok) throw new Error('List failed'); return r.json(); }

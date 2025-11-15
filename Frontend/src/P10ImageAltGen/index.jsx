@@ -89,7 +89,7 @@ export default function App() {
                             <span style={{ marginLeft: 'auto', fontSize: 12, opacity: 0.7 }}>{r.status}</span>
                         </label>
                         <div style={{ marginTop: 6 }}>
-                            <img src={`http://localhost:5059${r.url}`} alt="preview" style={{ width: '100%', height: 160, objectFit: 'contain', borderRadius: 6 }} />
+                            <img src={`http://localhost:5000${r.url}`} alt="preview" style={{ width: '100%', height: 160, objectFit: 'contain', borderRadius: 6 }} />
                         </div>
                         <label style={{ display: 'block', marginTop: 6, fontSize: 12, opacity: 0.7 }}>Alt text</label>
                         <textarea value={r.altText || ''} onChange={e => onEdit(r._id, 'altText', e.target.value)} rows={2} style={{ width: '100%', padding: 6, border: '1px solid #ddd', borderRadius: 8 }} />

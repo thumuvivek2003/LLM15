@@ -1,5 +1,5 @@
 export async function streamChat(messages, onDelta) {
-  const resp = await fetch('http://localhost:5050/api/P1/chat', {
+  const resp = await fetch('http://localhost:5000/api/P1/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ messages }),
