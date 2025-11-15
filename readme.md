@@ -1,3 +1,58 @@
+# 🚀 LLM 25 - Don't forget to star repo ⭐⭐⭐⭐⭐
+
+1. **Clone the repo**
+
+   ```bash
+   git clone https://github.com/thumuvivek2003/LLM15
+   cd LLM15
+   ```
+
+2. **Create `.env`**
+
+   ```bash
+   cp .example.env .env
+   ```
+
+   Add your Google API key or GPT API keys and other env variables here.
+
+3. **Select the frontend project**
+   Edit `Frontend/App.tsx`
+
+   * Comment out the current import and render.
+   * Uncomment the project you want to run.
+
+4. **Select the backend project**
+   Edit `Backend/index.js`
+
+   * Comment out the current import.
+   * Uncomment the required backend file.
+
+5. **Start frontend**
+
+   ```bash
+   npm run dev
+   ```
+
+6. **Start backend**
+
+   ```bash
+   nodemon index.js
+   ```
+
+   or
+
+   ```bash
+   node index.js
+   ```
+
+---
+
+Short, clean, and to the point.
+
+
+
+
+
 | S.No | Topic                     | Description                                                                                 | Learning Outcomes                                                                   |
 | ---: | ------------------------- | ------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
 |    1 | Chat UI “Hello LLM”       | Minimal React chatbox calling an LLM API via a Node/Express proxy.                          | API keys & proxies, fetch with streaming (SSE), React state, basic prompt design.   |
