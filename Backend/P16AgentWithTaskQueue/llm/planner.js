@@ -59,7 +59,7 @@ export async function planWithGemini(messages) {
 
   // ── First model response ─────────────────────
   const firstResponse = await genAI.models.generateContent({
-    model: 'gemini-2.5-flash',
+    model: 'gemini-2.0-flash',
     contents,
     config,
   });
@@ -107,7 +107,7 @@ export async function planWithGemini(messages) {
 
     // ── Second Gemini response (after tool results) ─────────────
     const secondResponse = await genAI.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-2.0-flash',
       contents: currentContents,
       config: {
         systemInstruction: SYSTEM_PROMPT,

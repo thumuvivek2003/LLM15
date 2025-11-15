@@ -49,7 +49,7 @@ r.post('/answer', async (req, res) => {
 
 
         const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
-        const model = genAI.getGenerativeModel({ model: process.env.GEN_MODEL || 'gemini-1.5-flash' });
+        const model = genAI.getGenerativeModel({ model: process.env.GEN_MODEL || 'gemini-2.0-flash' });
 
 
         const prompt = [

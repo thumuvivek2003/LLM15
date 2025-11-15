@@ -2,7 +2,7 @@
 import { GoogleGenAI } from '@google/genai';
 
 const MODEL = process.env.GEMINI_EMBED_MODEL || 'gemini-embedding-001';
-const CHAT_MODEL = process.env.GEMINI_CHAT_MODEL || 'gemini-2.5-flash';
+const CHAT_MODEL = process.env.GEMINI_CHAT_MODEL || 'gemini-2.0-flash';
 
 const apiKey = process.env.GOOGLE_API_KEY;
 if (!apiKey) throw new Error('Missing GOOGLE_API_KEY');
